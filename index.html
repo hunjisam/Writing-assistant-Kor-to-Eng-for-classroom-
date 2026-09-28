@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 영작 메이커 (Coach Alex)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        .word-block {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            user-select: none;
+        }
+        .word-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .word-block:active {
+            transform: translateY(1px);
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .shake-animation {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 로딩 스피너 애니메이션 */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 토스트 메시지 애니메이션 */
+        .toast-enter {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+
+    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:min-h-[650px] relative">
+        
+        <!-- 헤더 영역 -->
+        <div class="bg-indigo-600 text-white p-6 relative flex-shrink-0">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2">💡 AI 영작 메이커</h1>
+            <p class="text-indigo-200 text-sm sm:text-base">여러분이 쓴 한글 제안서를 AI가 영어 블록으로 만들어 줍니다!</p>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- [화면 1] 한글 입력 및 AI 생성 화면 -->
+        <!-- ========================================== -->
+        <div id="screen-input" class="flex-1 overflow-y-auto p-6 flex flex-col">
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
+                <h2 class="text-indigo-800 font-bold text-lg mb-4 flex items-center">
+                    <span class="text-2xl mr-2">🤖</span> Coach Alex의 문장 조립소
+                </h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 이번 문장의 핵심 문법을 선택하세요:</label>
+                    <select id="grammar-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                        <option value="자연스럽고 명확한 영어 문장 (문법 제한 없음)">[Step 1] 겪는 불편함 (자유 형식)</option>
+                        <option value="관계대명사 What 구문 (예: 우리가 필요한 것은 ~이다)">[Step 2] 해결을 위해 필요한 것 (관계대명사 What)</option>
+                        <option value="명사를 수식하는 현재분사 또는 과거분사 (예: ~을 감지하는 센서, ~에 부착된 부품)">[Step 3] 부품 및 특징 정리 (분사 활용)</option>
+                        <option value="전치사 By + 동명사 -ing (예: ~함으로써) ">[Step 4] 문제해결방법 (By -ing)</option>
+                        <option value="5형식 동사 allow/help 또는 By -ing (예: 일상을 편리하게 만들어 줌으로써)">[Step 5] 기대효과 (By -ing / Help)</option>
+                    </select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 작성한 한글 제안서 문장을 적어주세요:</label>
+                    <textarea id="korean-input" rows="3" placeholder="예: 많은 시각장애인들은 앞에 있는 위험을 알아채는 것을 종종 어려워합니다." class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"></textarea>
+                </div>
+            </div>
+
+            <button id="generate-btn" class="w-full py-4 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center justify-center">
+                ✨ AI 영어 블록 생성하기
+            </button>
+        </div>
+
+
+        <!-- ========================================== -->
+        <!-- [화면 2] 블록 맞추기 실습 화면 (기본 숨김) -->
+        <!-- ========================================== -->
+        <div id="screen-practice" class="flex-1 overflow-y-auto p-6 flex flex-col hidden">
+            
+            <div class="flex justify-between items-center mb-4">
+                <span id="current-grammar-badge" class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-bold border border-indigo-200">
+                    목표 문법
+                </span>
+                <button id="back-btn" class="text-sm text-gray-500 hover:text-indigo-600 font-semibold underline">
+                    ← 다른 문장 입력하기
+                </button>
+            </div>
+
+            <!-- 한글 제시문 -->
+            <div class="mb-6">
+                <h2 class="text-gray-500 font-bold text-sm mb-2">🎯 다음 문장을 만들어 보세요:</h2>
+                <div id="practice-korean-text" class="text-lg sm:text-xl font-bold text-gray-800 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <!-- 한글 문장이 여기에 들어갑니다 -->
+                </div>
+            </div>
+
+            <!-- 정답 조립 영역 -->
+            <div class="mb-6 flex-1">
+                <h2 class="text-gray-500 font-bold text-sm mb-2">📝 여기에 블록을 순서대로 놓으세요:</h2>
+                <div id="answer-zone" class="min-h-[120px] bg-indigo-50/50 border-2 border-dashed border-indigo-300 rounded-xl p-4 flex flex-wrap gap-2 content-start transition-colors duration-200">
+                    <!-- 선택된 블록들 -->
+                </div>
+            </div>
+
+            <!-- 소스 영역 -->
+            <div class="mb-2">
+                <h2 class="text-gray-500 font-bold text-sm mb-2">🧩 단어 블록 (클릭하여 이동):</h2>
+                <div id="source-zone" class="bg-gray-100 rounded-xl p-4 flex flex-wrap gap-2 min-h-[120px] content-start">
+                    <!-- 무작위 블록들 -->
+                </div>
+            </div>
+            
+            <!-- 실습 화면 하단 컨트롤 -->
+            <div class="mt-4 flex justify-between items-center">
+                <button id="reset-blocks-btn" class="px-4 py-2 text-gray-600 font-semibold hover:text-gray-800 transition-colors bg-gray-200 rounded-lg hover:bg-gray-300">
+                    블록 초기화
+                </button>
+                <button id="check-btn" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all">
+                    정답 확인
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 모달 및 로딩 UI -->
+    <!-- ========================================== -->
+    
+    <!-- 로딩 오버레이 -->
+    <div id="loading-overlay" class="fixed inset-0 bg-indigo-900 bg-opacity-80 flex flex-col items-center justify-center z-50 hidden backdrop-blur-sm">
+        <div class="spinner mb-4"></div>
+        <h3 class="text-white text-xl font-bold mb-2">Coach Alex가 블록을 만드는 중...</h3>
+        <p class="text-indigo-200 text-sm text-center px-6">"작성한 한글을 분석하고, 알맞은 문법 덩어리로 쪼개고 있어요!"</p>
+    </div>
+
+    <!-- 정답 모달 -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center pop-in">
+            <div id="modal-icon" class="text-5xl mb-4">🎉</div>
+            <h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-2">정답입니다!</h3>
+            <p id="modal-desc" class="text-gray-600 mb-6 font-medium">완벽하게 문장을 만들었어요.</p>
+            
+            <div id="full-english-sentence" class="bg-green-50 text-green-800 p-3 rounded-lg text-sm font-bold mb-6 border border-green-200">
+                <!-- 완성된 전체 영어 문장 -->
+            </div>
+
+            <button id="modal-close-btn" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">
+                확인
+            </button>
+        </div>
+    </div>
+
+    <!-- 토스트 컨테이너 -->
+    <div id="toast-container" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        
+        // 상태 변수
+        let originalChunks = []; // AI가 생성한 정답 순서의 청크 배열
+        let availableChunks = []; // 소스 영역에 있는 블록들 (객체 형태: {id, text})
+        let selectedChunks = []; // 정답 영역에 놓은 블록들 (객체 형태: {id, text})
+        let fullGeneratedEnglish = "";
+
+        // DOM 요소
+        const screenInput = document.getElementById('screen-input');
+        const screenPractice = document.getElementById('screen-practice');
+        
+        const grammarSelect = document.getElementById('grammar-select');
+        const koreanInput = document.getElementById('korean-input');
+        const generateBtn = document.getElementById('generate-btn');
+        const backBtn = document.getElementById('back-btn');
+        
+        const practiceKoreanText = document.getElementById('practice-korean-text');
+        const currentGrammarBadge = document.getElementById('current-grammar-badge');
+        const answerZone = document.getElementById('answer-zone');
+        const sourceZone = document.getElementById('source-zone');
+        const resetBlocksBtn = document.getElementById('reset-blocks-btn');
+        const checkBtn = document.getElementById('check-btn');
+        
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const messageModal = document.getElementById('message-modal');
+        const modalIcon = document.getElementById('modal-icon');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const fullEnglishSentence = document.getElementById('full-english-sentence');
+        const toastContainer = document.getElementById('toast-container');
+
+        // Gemini API 설정
+        const API_KEY = "AQ.Ab8RN6L01kBWxhEPzuulnrd1u88IdIGqTE2ogk_yvVvqIm15SQ"; // 예시: "AIzaSy..."
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
+
+
+        // 커스텀 토스트 알림 함수 (alert 대체)
+        function showToast(message, type = 'error') {
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-500' : 'bg-gray-800';
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-full shadow-lg font-bold text-sm toast-enter flex items-center justify-center`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                toast.style.transition = 'all 0.3s ease-in';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        // 배열 셔플 함수
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function showModal(isSuccess) {
+            messageModal.classList.remove('hidden');
+            if(isSuccess) {
+                modalIcon.textContent = "🎉";
+                modalTitle.textContent = "Excellent!";
+                modalTitle.className = "text-2xl font-bold text-green-600 mb-2";
+                modalDesc.textContent = "정확한 어순으로 문장을 완성했어요!";
+                fullEnglishSentence.classList.remove('hidden');
+                fullEnglishSentence.textContent = fullGeneratedEnglish;
+                
+                modalCloseBtn.className = "w-full py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors";
+            } else {
+                modalIcon.textContent = "🤔";
+                modalTitle.textContent = "Try Again!";
+                modalTitle.className = "text-2xl font-bold text-red-500 mb-2";
+                modalDesc.textContent = "블록의 순서가 조금 다릅니다. 다시 한번 생각해 보세요!";
+                fullEnglishSentence.classList.add('hidden');
+                
+                modalCloseBtn.className = "w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors";
+            }
+        }
+
+        modalCloseBtn.addEventListener('click', () => {
+            messageModal.classList.add('hidden');
+        });
+
+
+        // AI 블록 생성 함수
+        async function generateBlocks() {
+            const userKorean = koreanInput.value.trim();
+            const targetGrammar = grammarSelect.value;
+            const targetGrammarTitle = grammarSelect.options[grammarSelect.selectedIndex].text;
+
+            if (!userKorean) {
+                showToast('한글 문장을 먼저 입력해주세요!');
+                koreanInput.focus();
+                return;
+            }
+
+            loadingOverlay.classList.remove('hidden');
+
+            const systemPrompt = `You are an expert English teacher helping Korean high school students practice English writing.
+Your task is to translate the user's Korean sentence into a natural English sentence, strictly applying the provided 'Target Grammar' rule.
+After translating, divide the English sentence into 3 to 6 meaningful semantic chunks (e.g., subject phrase, verb phrase, prepositional phrase, relative clause).
+Ensure the chunks, when concatenated with spaces, form the exact complete English sentence.
+
+Return the result in strictly formatted JSON.`;
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{ text: `Korean Sentence: ${userKorean}\nTarget Grammar requirement: ${targetGrammar}` }]
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            englishSentence: { 
+                                type: "STRING", 
+                                description: "The full translated English sentence." 
+                            },
+                            chunks: { 
+                                type: "ARRAY", 
+                                items: { type: "STRING" },
+                                description: "The sentence broken into 3 to 6 logical semantic chunks in correct order."
+                            }
+                        },
+                        required: ["englishSentence", "chunks"]
+                    }
+                }
+            };
+
+            // 백오프 재시도 로직을 포함한 API 호출
+            let retries = 3;
+            let delay = 1000;
+            
+            while (retries > 0) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0) {
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        const data = JSON.parse(jsonString);
+                        
+                        if(!data.chunks || data.chunks.length === 0) {
+                             throw new Error("Invalid chunk data");
+                        }
+                        
+                        // 성공적으로 파싱된 경우 실습 화면으로 전환
+                        setupPracticeScreen(userKorean, targetGrammarTitle, data.englishSentence, data.chunks);
+                        break;
+                    } else {
+                        throw new Error("No response from AI.");
+                    }
+                } catch (error) {
+                    retries--;
+                    if (retries === 0) {
+                        showToast('블록 생성에 실패했습니다. 다시 시도해 주세요.');
+                    } else {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                    }
+                }
+            }
+            
+            loadingOverlay.classList.add('hidden');
+        }
+
+
+        function setupPracticeScreen(korean, grammarTitle, english, chunks) {
+            // 데이터 설정
+            fullGeneratedEnglish = english;
+            originalChunks = chunks;
+            
+            // UI 텍스트 설정
+            practiceKoreanText.textContent = korean;
+            currentGrammarBadge.textContent = grammarTitle;
+            
+            // 화면 전환
+            screenInput.classList.add('hidden');
+            screenPractice.classList.remove('hidden');
+            
+            initBlocks();
+        }
+
+        function initBlocks() {
+            selectedChunks = [];
+            // 정답 순서(인덱스)를 기억하기 위해 객체 배열로 변환 후 셔플
+            let mappedChunks = originalChunks.map((text, idx) => ({ id: idx, text: text }));
+            availableChunks = shuffleArray([...mappedChunks]);
+            
+            renderBlocks();
+        }
+
+        function renderBlocks() {
+            answerZone.innerHTML = '';
+            sourceZone.innerHTML = '';
+
+            // 선택된 블록 렌더링
+            selectedChunks.forEach((chunkObj, uiIndex) => {
+                const btn = createBlockElement(chunkObj.text, true);
+                btn.onclick = () => moveToSource(uiIndex, chunkObj);
+                answerZone.appendChild(btn);
+            });
+
+            // 남은 블록 렌더링
+            availableChunks.forEach((chunkObj, uiIndex) => {
+                const btn = createBlockElement(chunkObj.text, false);
+                btn.onclick = () => moveToAnswer(uiIndex, chunkObj);
+                sourceZone.appendChild(btn);
+            });
+        }
+
+        function createBlockElement(text, isSelected) {
+            const btn = document.createElement('button');
+            btn.className = `word-block px-4 py-2 sm:px-5 sm:py-3 rounded-lg font-medium text-sm sm:text-base border shadow-sm transition-all duration-200 ${
+                isSelected 
+                ? 'bg-white border-indigo-400 text-indigo-700 font-bold shadow-md' 
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-indigo-50 hover:border-indigo-200'
+            }`;
+            btn.textContent = text;
+            return btn;
+        }
+
+        function moveToAnswer(index, chunkObj) {
+            availableChunks.splice(index, 1);
+            selectedChunks.push(chunkObj);
+            renderBlocks();
+        }
+
+        function moveToSource(index, chunkObj) {
+            selectedChunks.splice(index, 1);
+            availableChunks.push(chunkObj);
+            renderBlocks();
+        }
+
+
+        // 생성 버튼
+        generateBtn.addEventListener('click', generateBlocks);
+
+        // 입력 화면으로 돌아가기
+        backBtn.addEventListener('click', () => {
+            screenPractice.classList.add('hidden');
+            screenInput.classList.remove('hidden');
+        });
+
+        // 실습 블록 초기화
+        resetBlocksBtn.addEventListener('click', initBlocks);
+
+        // 정답 확인 로직
+        checkBtn.addEventListener('click', () => {
+            if (availableChunks.length > 0) {
+                // 블록을 다 채우지 않은 경우 흔들림 효과
+                answerZone.classList.add('shake-animation');
+                answerZone.classList.add('bg-red-50');
+                answerZone.classList.remove('bg-indigo-50/50');
+                
+                showToast('모든 블록을 놓아주세요!');
+
+                setTimeout(() => {
+                    answerZone.classList.remove('shake-animation');
+                    answerZone.classList.remove('bg-red-50');
+                    answerZone.classList.add('bg-indigo-50/50');
+                }, 400);
+                return;
+            }
+
+            // 순서 검증 (객체의 id가 0부터 순서대로인지 확인)
+            let isCorrect = true;
+            for (let i = 0; i < selectedChunks.length; i++) {
+                if (selectedChunks[i].id !== i) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+
+            showModal(isCorrect);
+        });
+
+        // 힌트 텍스트 변경 로직 (선택한 문법에 따라 placeholder 변경)
+        grammarSelect.addEventListener('change', (e) => {
+            const val = e.target.selectedIndex;
+            const hints = [
+                "예: 많은 시각장애인들은 앞에 있는 위험을 알아채는 것을 종종 어려워합니다.",
+                "예: 이 문제를 해결하기 위해, 우리가 필요로 하는 것은 진동 점자 블록입니다.",
+                "예: 진동 점자 블록은 압력에 연결되거나 위험을 감지하는 센서를 가지고 있습니다.",
+                "예: 진동하고 소리를 냄으로써, 이것은 그들이 위험을 예상하도록 도울 수 있습니다.",
+                "예: 잠재적인 사고를 예방함으로써 우리 사회는 더 안전해질 수 있습니다."
+            ];
+            koreanInput.placeholder = hints[val] || "한글 문장을 입력하세요.";
+        });
+
+    </script>
+</body>
+</html>
